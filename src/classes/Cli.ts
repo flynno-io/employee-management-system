@@ -4,7 +4,6 @@ import { pool, connectToDb } from '../connection.js';
 import { QueryResult } from 'pg';
 import cfonts from 'cfonts';
 import inquirer from 'inquirer';
-import { table } from 'table';
 
 await connectToDb();
 class Cli {
@@ -21,10 +20,10 @@ class Cli {
       LEFT JOIN role r ON e.role_id = r.id
       LEFT JOIN department d ON r.department_id = d.id
       LEFT JOIN employee m ON e.manager_id = m.id
+      ORDER BY e.id
     `;
     const result: QueryResult = await pool.query(query);
-    console.log(typeof(result.rows));
-    console.log(table(result.rows));
+    console.table(result.rows);
   }
 
   async viewAllEmployeesByDepartment(): Promise<void> {
@@ -33,7 +32,7 @@ class Cli {
       FROM employee e
       LEFT JOIN role r ON e.role_id = r.id
       LEFT JOIN department d ON r.department_id = d.id
-      ORDER BY d.name
+      ORDER BY d.name ASC, e.id ASC
     `;
     const result: QueryResult = await pool.query(query);
     console.table(result.rows);
@@ -41,11 +40,12 @@ class Cli {
 
   async viewAllEmployeesByManager(): Promise<void> {
     const query = `
-      SELECT CONCAT(m.first_name, ' ', m.last_name) AS manager, e.id, e.first_name, e.last_name, r.title
+      SELECT CONCAT(m.first_name, ' ', m.last_name) AS manager, e.id, e.first_name, e.last_name, r.title, d.name AS department
       FROM employee e
       LEFT JOIN role r ON e.role_id = r.id
       LEFT JOIN employee m ON e.manager_id = m.id
-      ORDER BY manager
+      LEFT JOIN department d ON r.department_id = d.id
+      ORDER BY manager ASC, e.id ASC
     `;
     const result: QueryResult = await pool.query(query);
     console.table(result.rows);
@@ -95,10 +95,16 @@ class Cli {
         message: 'Select the employee to remove:',
         choices: employeeChoices
       }
-    ]);
-    const query = 'DELETE FROM employee WHERE id = $1';
-    await pool.query(query, [answers.employeeId]);
-    console.log('Employee removed successfully!');
+    ]).then(async (answers) => {
+      // Update the manager_id of employees managed by the employee to be removed
+      const updateQuery = 'UPDATE employee SET manager_id = NULL WHERE manager_id = $1';
+      await pool.query(updateQuery, [answers.employeeId]);
+
+      // Remove the employee
+      const deleteQuery = 'DELETE FROM employee WHERE id = $1';
+      await pool.query(deleteQuery, [answers.employeeId]);
+      console.log('Employee removed successfully!');
+    });
   }
 
   async updateEmployeeRole(): Promise<void> {
@@ -184,22 +190,52 @@ class Cli {
   async removeRole(): Promise<void> {
     const roles = await pool.query('SELECT id, title FROM role');
     const roleChoices = roles.rows.map(role => ({ name: role.title, value: role.id }));
-    const answers = await inquirer.prompt([
+    const roleToRemove: any = await inquirer.prompt([
       {
         type: 'list',
         name: 'roleId',
         message: 'Select the role to remove:',
         choices: roleChoices
       }
+    ])
+    const roleToReplace: any = await inquirer.prompt([
+      {
+        type: 'list',
+        name: 'newRoleId',
+        message: 'Select the new role for employees whoa re assigned to the role to be removed:',
+        choices: roleChoices.filter(role => role.value !== roleToRemove.roleId)
+      }
     ]);
+
+    // Update the manager_id of employees managed by the employee to be removed
+    const updateQuery = 'UPDATE employee SET role_id = $1 WHERE role_id = $2';
+    await pool.query(updateQuery, [roleToReplace.newRoleId, roleToRemove.roleId]);
+    
+    // Remove the role
     const query = 'DELETE FROM role WHERE id = $1';
-    await pool.query(query, [answers.roleId]);
+    await pool.query(query, [roleToRemove.roleId]);
     console.log('Role removed successfully!');
   }
 
   async viewAllDepartments(): Promise<void> {
     const query = 'SELECT id, name FROM department';
     const result: QueryResult = await pool.query(query);
+    console.table(result.rows);
+  }
+
+  async viewBudgetByDepartment(): Promise<void> {
+    const departments = await pool.query('SELECT id, name FROM department');
+    const departmentChoices = departments.rows.map(department => ({ name: department.name, value: department.id }));
+    const answers = await inquirer.prompt([
+      {
+        type: 'list',
+        name: 'departmentId',
+        message: 'Select the department to view budget:',
+        choices: departmentChoices
+      }
+    ]);
+    const query = 'SELECT SUM(r.salary) AS budget FROM role r WHERE r.department_id = $1';
+    const result: QueryResult = await pool.query(query, [answers.departmentId]);
     console.table(result.rows);
   }
 
@@ -219,22 +255,30 @@ class Cli {
   async removeDepartment(): Promise<void> {
     const departments = await pool.query('SELECT id, name FROM department');
     const departmentChoices = departments.rows.map(department => ({ name: department.name, value: department.id }));
-    const answers = await inquirer.prompt([
+    const departmentToRemove = await inquirer.prompt([
       {
         type: 'list',
         name: 'departmentId',
         message: 'Select the department to remove:',
         choices: departmentChoices
       }
+    ])
+    const departmentToReplace = await inquirer.prompt([
+      {
+        type: 'list',
+        name: 'newDepartmentId',
+        message: 'Select the new department for roles in the department to be removed:',
+        choices: departmentChoices.filter(department => department.value !== departmentToRemove.departmentId)
+      }
     ]);
-    const query = 'DELETE FROM department WHERE id = $1';
-    await pool.query(query, [answers.departmentId]);
-    console.log('Department removed successfully!');
-  }
 
-  async exitCli(): Promise<void> {
-    console.log('Exiting the application...');
-    process.exit(0);
+    // Update the manager_id of employees managed by the employee to be removed
+    const updateQuery = 'UPDATE role SET department_id = $1 WHERE department_id = $2';
+    await pool.query(updateQuery, [departmentToReplace.newDepartmentId, departmentToRemove.departmentId]);
+
+    const query = 'DELETE FROM department WHERE id = $1';
+    await pool.query(query, [departmentToRemove.departmentId]);
+    console.log('Department removed successfully!');
   }
 
   printWelcomeMessage(): void {
@@ -248,6 +292,11 @@ class Cli {
       space: true,                // define if the output text should have empty lines on top and on the bottom
       maxLength: '0',             // define how many character can be on one line
     });
+  }
+
+  async exitCli(): Promise<void> {
+    console.log('Exiting the application...');
+    process.exit(0);
   }
 
   printActionMenu(): void {
@@ -271,6 +320,7 @@ class Cli {
           'Remove role',
           new inquirer.Separator('--- Department Management ---'),
           'View all departments',
+          'View budget by department',
           'Add department',
           'Remove department',
           new inquirer.Separator('--- Exit Application ---'),
@@ -311,6 +361,9 @@ class Cli {
           break;
         case 'View all departments':
           await this.viewAllDepartments();
+          break;
+        case 'View budget by department':
+          await this.viewBudgetByDepartment();
           break;
         case 'Add department':
           await this.addDepartment();

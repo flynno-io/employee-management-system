@@ -30,5 +30,10 @@ INSERT INTO employee (first_name, last_name, role_id, is_manager) VALUES
 ('Frank', 'Sinatra', 1, FALSE),
 ('Billie', 'Holiday', 2, FALSE),
 ('Ethel', 'Waters', 2, FALSE),
-('Lena', 'Horne', 4, FALSE),
+('Lena', 'Horne', 3, FALSE),
 ('Fred', 'Astaire', 4, FALSE);
+
+-- Update the manager_id column for the employees
+UPDATE employee e
+SET manager_id = (SELECT id FROM employee m WHERE m.role_id = e.role_id AND m.is_manager = TRUE)
+WHERE e.is_manager = FALSE;
