@@ -1,0 +1,37 @@
+# Node.js dependencies
+node_modules/
+npm-debug.log*
+
+# Output of build process
+dist/
+build/
+
+# OS-specific files
+.DS_Store
+*.swp
+
+# Logs
+logs
+*.log
+
+# Environment variables
+.env
+
+# Optional npm cache directory
+.npm
+
+# IDE/editor-specific
+.vscode/
+
+# macOS Finder attributes
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# macOS trash
+.Trashes
+
+# Temporary files
+*.tmp
+*.temp
+*.todo
