@@ -2,13 +2,18 @@
   "name": "employee-manager-system",
   "version": "1.0.0",
   "description": "manage your company's employee data",
+  "type": "module",
   "main": "index.js",
   "scripts": {
+    "start": "npm run build && npm run setup && node dist/index.js",
+    "build": "npx tsc",
+    "setup": "node dist/dbSetup.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Luke Flynn",
   "license": "MIT",
   "dependencies": {
+    "cfonts": "^3.3.0",
     "dotenv": "^16.4.5",
     "inquirer": "^12.0.0",
     "pg": "^8.13.0"
