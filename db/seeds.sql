@@ -1,5 +1,8 @@
 -- Seed data into the department, role, and employee tables
 
+-- Connect to the employee_db database
+\c employee_db flynno
+
 -- Truncate the tables before inserting new data
 TRUNCATE TABLE employee, role, department RESTART IDENTITY CASCADE;
 

@@ -11,6 +11,9 @@ const pool = new Pool({
   host: 'localhost',
   database: process.env.DB_NAME,
   port: 5432,
+  connectionTimeoutMillis: 200,
+  idleTimeoutMillis: 200,
+  allowExitOnIdle: true
 });
 
 const connectToDb = async () => {
