@@ -5,9 +5,10 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "npm run build && npm run setup && node dist/index.js",
+    "start": "npm run build && node dist/index.js",
+    "start:dev": "npm run build && npm run setup && node dist/index.js",
     "build": "npx tsc",
-    "setup": "node dist/dbSetup.js",
+    "setup": "psql -U flynno -f db/schema.sql && psql -U flynno -f db/seeds.sql",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Luke Flynn",

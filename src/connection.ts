@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-// create pool using Postgres
+// Import and require Pool (node-postgres)
 import pg from 'pg';
 const { Pool } = pg;
 
@@ -22,5 +22,11 @@ const connectToDb = async () => {
     process.exit(1);
   }
 };
+
+// Add a listener for error events on the pool
+pool.on('error', (err: Error) => {
+  console.error('Unexpected error on idle client:', err);
+  process.exit(-1);
+});
 
 export { pool, connectToDb };
