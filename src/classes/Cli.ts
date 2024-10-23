@@ -53,7 +53,7 @@ class Cli {
       }
     ])
     const query = `
-      SELECT d.name AS department, e.id, e.first_name, e.last_name, r.title, CONCAT(m.first_name, ' ', m.last_name) AS manager
+      SELECT e.id, e.first_name, e.last_name, r.title, CONCAT(m.first_name, ' ', m.last_name) AS manager, d.name AS department
       FROM employee e
       LEFT JOIN role r ON e.role_id = r.id
       LEFT JOIN department d ON r.department_id = d.id
@@ -90,7 +90,7 @@ class Cli {
       }
     ])
     const query = `
-      SELECT CONCAT(m.first_name, ' ', m.last_name) AS manager, e.id, e.first_name, e.last_name, r.title, d.name AS department
+      SELECT e.id, e.first_name, e.last_name, r.title, d.name AS department, CONCAT(m.first_name, ' ', m.last_name) AS manager
       FROM employee e
       LEFT JOIN employee m ON e.manager_id = m.id
       LEFT JOIN role r ON e.role_id = r.id
