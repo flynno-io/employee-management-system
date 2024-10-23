@@ -27,27 +27,50 @@ class Cli {
   }
 
   async viewAllEmployeesByDepartment(): Promise<void> {
+    const departments = await pool.query('SELECT id, name FROM department');
+    const departmentChoices = departments.rows.map(department => ({ name: `${department.name}`, value: department.id }));
+    const answer = await inquirer.prompt([
+      {
+        type: 'list',
+        name: 'departmentId',
+        message: 'Select a department to see all its employees:',
+        choices: departmentChoices
+      }
+    ])
     const query = `
-      SELECT d.name AS department, e.id, e.first_name, e.last_name, r.title
+      SELECT d.name AS department, e.id, e.first_name, e.last_name, r.title, CONCAT(m.first_name, ' ', m.last_name) AS manager
       FROM employee e
       LEFT JOIN role r ON e.role_id = r.id
       LEFT JOIN department d ON r.department_id = d.id
+      LEFT JOIN employee m ON e.manager_id = m.id
+      WHERE d.id = $1
       ORDER BY d.name ASC, e.id ASC
     `;
-    const result: QueryResult = await pool.query(query);
+    const result: QueryResult = await pool.query(query, [answer.departmentId]);
     console.table(result.rows);
   }
 
   async viewAllEmployeesByManager(): Promise<void> {
+    const managers = await pool.query('SELECT id, first_name, last_name FROM employee WHERE is_manager = true');
+    const managerChoices = managers.rows.map(manager => ({ name: `${manager.first_name} ${manager.last_name}`, value: manager.id }));
+    const answer = await inquirer.prompt([
+      {
+        type: 'list',
+        name: 'managerId',
+        message: 'Select a manager to see all of their employees:',
+        choices: managerChoices
+      }
+    ])
     const query = `
       SELECT CONCAT(m.first_name, ' ', m.last_name) AS manager, e.id, e.first_name, e.last_name, r.title, d.name AS department
       FROM employee e
-      LEFT JOIN role r ON e.role_id = r.id
       LEFT JOIN employee m ON e.manager_id = m.id
+      LEFT JOIN role r ON e.role_id = r.id
       LEFT JOIN department d ON r.department_id = d.id
-      ORDER BY manager ASC, e.id ASC
+      WHERE e.manager_id = $1
+      ORDER BY d.name ASC, e.id ASC
     `;
-    const result: QueryResult = await pool.query(query);
+    const result: QueryResult = await pool.query(query, [answer.managerId]);
     console.table(result.rows);
   }
 
@@ -308,8 +331,8 @@ class Cli {
         choices: [
           new inquirer.Separator('--- Employee Management ---'),
           'View all employees',
-          'View all employees by department',
-          'View all employees by manager',
+          'View all employees by department', // FIXME: update to select department and see employees in the department
+          'View all employees by manager', // FIXME: update to select manager and see employees managed by the manager
           'Add employee',
           'Remove employee',
           'Update employee role',
