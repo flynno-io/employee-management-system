@@ -1,11 +1,13 @@
-import dotenv from 'dotenv';
-dotenv.config();
-import { pool, connectToDb } from '../connection.js';
 import { QueryResult } from 'pg';
+import dotenv from 'dotenv';
 import cfonts from 'cfonts';
 import inquirer from 'inquirer';
+import { pool, connectToDb } from '../db/connection.js';
+import setupDatabase from '../db/setupDatabase.js';
+import setupTables from '../db/setupTables.js';
 
-await connectToDb();
+dotenv.config();
+
 class Cli {
   exit: boolean = false;
 
@@ -123,12 +125,13 @@ class Cli {
     ]);
     const managers = await pool.query('SELECT id, first_name, last_name FROM employee WHERE is_manager IS TRUE AND role_id = $1', [employeeInfo.roleId]);
     const managerChoices = managers.rows.map(manager => ({ name: `${manager.first_name} ${manager.last_name}`, value: manager.id }));
+    managerChoices.push({ name: 'None', value: null })
     const managerAnswers = await inquirer.prompt([
       {
         type: 'list',
         name: 'managerId',
         message: 'Select the employee\'s manager:',
-        choices: managerChoices
+        choices: managerChoices ? managerChoices : [{ name: 'None', value: null }]
       },
       {
         type: 'confirm',
@@ -190,7 +193,7 @@ class Cli {
   async updateEmployeeManager(): Promise<void> {
     const employees = await pool.query('SELECT id, first_name, last_name FROM employee');
     const employeeChoices = employees.rows.map(employee => ({ name: `${employee.first_name} ${employee.last_name}`, value: employee.id }));
-    const managers = await pool.query('SELECT id, first_name, last_name FROM employee');
+    const managers = await pool.query('SELECT id, first_name, last_name FROM employee WHERE is_manager IS TRUE');
     const managerChoices = managers.rows.map(manager => ({ name: `${manager.first_name} ${manager.last_name}`, value: manager.id }));
     const answers = await inquirer.prompt([
       {
@@ -447,6 +450,8 @@ class Cli {
   }
   
   async startCLi(): Promise<void> {
+    await setupDatabase();
+    await setupTables();
     this.printWelcomeMessage();
     this.printActionMenu();
   }
