@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Description
-Manage an employee database right form the command line.
+Manage an employee database right form the command line. Checkout the code on [Github](https://github.com/flynno-io/employee-management-system.git)
 
 ## Table of Contents
 - [Employee Management CLI](#employee-management-cli)
@@ -26,8 +26,10 @@ Manage an employee database right form the command line.
 7. Start the CLI by running `npm run start`.
 
 ## Usage
-1. Update the .env file with your database settings.
+1. Update the `.env` file with your database settings.
 2. Run `npm run start` to start the CLI.
+
+To see the application functionality, watch this [demo](https://www.example.com/test/)
 
 ## Credits
 I welcome contributions to my project. Please see the [Contributing](#contributing) section.
