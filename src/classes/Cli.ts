@@ -20,13 +20,26 @@ class Cli {
       LEFT JOIN role r ON e.role_id = r.id
       LEFT JOIN department d ON r.department_id = d.id
       LEFT JOIN employee m ON e.manager_id = m.id
-      ORDER BY e.id
+      ORDER BY e.id, e.is_manager DESC
     `;
     const result: QueryResult = await pool.query(query);
     console.table(result.rows);
   }
 
   async viewAllEmployeesByDepartment(): Promise<void> {
+    const query = `
+      SELECT d.name AS department, e.id, e.first_name, e.last_name, r.title, CONCAT(m.first_name, ' ', m.last_name) AS manager
+      FROM employee e
+      LEFT JOIN role r ON e.role_id = r.id
+      LEFT JOIN department d ON r.department_id = d.id
+      LEFT JOIN employee m ON e.manager_id = m.id
+      ORDER BY d.name ASC, e.id ASC
+    `;
+    const result: QueryResult = await pool.query(query);
+    console.table(result.rows);
+  }
+
+  async viewEmployeesInADepartment(): Promise<void> {
     const departments = await pool.query('SELECT id, name FROM department');
     const departmentChoices = departments.rows.map(department => ({ name: `${department.name}`, value: department.id }));
     const answer = await inquirer.prompt([
@@ -51,6 +64,19 @@ class Cli {
   }
 
   async viewAllEmployeesByManager(): Promise<void> {
+    const query = `
+      SELECT CONCAT(m.first_name, ' ', m.last_name) AS manager, e.id, e.first_name, e.last_name, r.title, d.name AS department
+      FROM employee e
+      LEFT JOIN employee m ON e.manager_id = m.id
+      LEFT JOIN role r ON e.role_id = r.id
+      LEFT JOIN department d ON r.department_id = d.id
+      ORDER BY m.first_name ASC, e.id ASC
+    `;
+    const result: QueryResult = await pool.query(query);
+    console.table(result.rows);
+  }
+
+  async viewEmployeesUnderAManager(): Promise<void> {
     const managers = await pool.query('SELECT id, first_name, last_name FROM employee WHERE is_manager = true');
     const managerChoices = managers.rows.map(manager => ({ name: `${manager.first_name} ${manager.last_name}`, value: manager.id }));
     const answer = await inquirer.prompt([
@@ -68,7 +94,7 @@ class Cli {
       LEFT JOIN role r ON e.role_id = r.id
       LEFT JOIN department d ON r.department_id = d.id
       WHERE e.manager_id = $1
-      ORDER BY d.name ASC, e.id ASC
+      ORDER BY e.first_name ASC, e.last_name ASC
     `;
     const result: QueryResult = await pool.query(query, [answer.managerId]);
     console.table(result.rows);
@@ -76,10 +102,8 @@ class Cli {
 
   async addEmployee(): Promise<void> {
     const roles = await pool.query('SELECT id, title FROM role');
-    const managers = await pool.query('SELECT id, first_name, last_name FROM employee WHERE manager_id IS NULL');
     const roleChoices = roles.rows.map(role => ({ name: role.title, value: role.id }));
-    const managerChoices = managers.rows.map(manager => ({ name: `${manager.first_name} ${manager.last_name}`, value: manager.id }));
-    const answers = await inquirer.prompt([
+    const employeeInfo = await inquirer.prompt([
       {
         type: 'input',
         name: 'firstName',
@@ -95,16 +119,25 @@ class Cli {
         name: 'roleId',
         message: 'Select the employee\'s role:',
         choices: roleChoices
-      },
+      }
+    ]);
+    const managers = await pool.query('SELECT id, first_name, last_name FROM employee WHERE is_manager IS TRUE AND role_id = $1', [employeeInfo.roleId]);
+    const managerChoices = managers.rows.map(manager => ({ name: `${manager.first_name} ${manager.last_name}`, value: manager.id }));
+    const managerAnswers = await inquirer.prompt([
       {
         type: 'list',
         name: 'managerId',
         message: 'Select the employee\'s manager:',
         choices: managerChoices
+      },
+      {
+        type: 'confirm',
+        name: 'isManager',
+        message: 'Is the employee a manager?'
       }
     ]);
-    const query = 'INSERT INTO employee (first_name, last_name, role_id, manager_id) VALUES ($1, $2, $3, $4)';
-    await pool.query(query, [answers.firstName, answers.lastName, answers.roleId, answers.managerId]);
+    const query = 'INSERT INTO employee (first_name, last_name, role_id, manager_id, is_manager) VALUES ($1, $2, $3, $4, $5)';
+    await pool.query(query, [employeeInfo.firstName, employeeInfo.lastName, employeeInfo.roleId, managerAnswers.managerId, managerAnswers.isManager]);
     console.log('Employee added successfully!');
   }
 
@@ -331,8 +364,10 @@ class Cli {
         choices: [
           new inquirer.Separator('--- Employee Management ---'),
           'View all employees',
-          'View all employees by department', // FIXME: update to select department and see employees in the department
-          'View all employees by manager', // FIXME: update to select manager and see employees managed by the manager
+          'View all employees by department',
+          'View employees in a department',
+          'View all employees by manager',
+          'View employees under a manager',
           'Add employee',
           'Remove employee',
           'Update employee role',
@@ -358,8 +393,14 @@ class Cli {
         case 'View all employees by department':
           await this.viewAllEmployeesByDepartment();
           break;
+        case 'View employees in a department':
+          await this.viewEmployeesInADepartment();
+          break;
         case 'View all employees by manager':
           await this.viewAllEmployeesByManager();
+          break;
+        case 'View employees under a manager':
+          await this.viewEmployeesUnderAManager();
           break;
         case 'Add employee':
           await this.addEmployee();
